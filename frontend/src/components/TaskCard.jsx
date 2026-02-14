@@ -1,43 +1,43 @@
 import React from 'react';
-import { Trash2, AlertCircle, Tag } from 'lucide-react';
+import { Trash2, ExternalLink } from 'lucide-react';
 
-const PRIORITY_COLORS = {
-  High: 'text-red-600 bg-red-100',
-  Medium: 'text-yellow-600 bg-yellow-100',
-  Low: 'text-green-600 bg-green-100',
-};
+export default function TaskCard({ task, onDelete }) {
+  const styles = {
+    card: {
+      background: 'rgba(255, 255, 255, 0.03)',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      borderRadius: '16px',
+      padding: '20px',
+      marginBottom: '16px',
+      transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+      cursor: 'grab'
+    }
+  };
 
-export default function TaskCard({ task, onUpdate, onDelete }) {
   return (
-    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group">
-      <div className="flex justify-between items-start mb-2">
-        {/* Priority Badge */}
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${PRIORITY_COLORS[task.priority]}`}>
-          {task.priority}
-        </span>
-        
-        {/* Delete Button - only shows on hover for a cleaner look */}
-        <button 
-          onClick={() => onDelete(task.id)}
-          className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        >
+    <div style={styles.card} className="nebula-card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8' }}></div>
+          <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase' }}>{task.category || 'Internal'}</span>
+        </div>
+        <button onClick={() => onDelete(task.id)} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer' }}>
           <Trash2 size={16} />
         </button>
       </div>
-
-      <h3 className="font-semibold text-gray-800 mb-3">{task.title}</h3>
-
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-50">
-        <div className="flex items-center gap-1.5 text-gray-500">
-          <Tag size={14} />
-          <span className="text-xs">{task.category}</span>
-        </div>
-        
-        <div className="flex items-center gap-1 text-gray-400">
-          <AlertCircle size={14} />
-          <span className="text-[10px]">ID: {task.id.substring(0, 4)}</span>
-        </div>
+      <h4 style={{ margin: '0 0 15px 0', fontSize: '15px', lineHeight: '1.5' }}>{task.title}</h4>
+      <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <ExternalLink size={12} />
+        <span>Click to expand details</span>
       </div>
+      <style>{`
+        .nebula-card:hover {
+          background: rgba(255, 255, 255, 0.08) !important;
+          transform: translateY(-5px);
+          border-color: rgba(56, 189, 248, 0.5) !important;
+          box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+        }
+      `}</style>
     </div>
   );
 }
