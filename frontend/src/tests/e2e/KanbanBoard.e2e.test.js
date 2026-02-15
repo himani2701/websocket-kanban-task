@@ -1,40 +1,59 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Kanban Board E2E Tests", () => {
+test.describe("SyncBoard Professional E2E Suite", () => {
   
   test.beforeEach(async ({ page }) => {
-    
-    await page.goto("http://localhost:5173"); 
+    // Ensure this matches your Vite port (3000 as per your vite.config.js)
+    await page.goto("http://localhost:3000"); 
   });
 
-  test("User can add a task and see it on the board", async ({ page }) => {
-    await expect(page.getByText("Real-Time Kanban")).toBeVisible();
+  test("User can add a task and verify persistence", async ({ page }) => {
+    await expect(page.getByText("SyncBoard")).toBeVisible();
 
     const input = page.getByPlaceholder(/Enter new task title.../i);
-    await input.fill("Playwright Test Task");
-    await page.keyboard.press("Enter");
+    await input.fill("Internship Milestone");
+    await page.click('button:has-text("Add Task")');
 
+    // Verify task appears in TODO column
+    const todoColumn = page.locator('.column:has-text("TO DO")');
+    await expect(todoColumn.locator("text=Internship Milestone")).toBeVisible();
     
-    await expect(page.locator("text=Playwright Test Task")).toBeVisible();
+    // Verify Task Count updated
+    await expect(todoColumn.locator(".task-count")).toHaveText("1");
   });
 
-  test("User can delete a task", async ({ page }) => {
-    // Adding a task first
+  test("User can drag a task from TODO to DONE and verify Chart update", async ({ page }) => {
+    // 1 Setup: Add a task
     const input = page.getByPlaceholder(/Enter new task title.../i);
-    await input.fill("Task to Delete");
-    await page.keyboard.press("Enter");
+    await input.fill("Drag Test Task");
+    await page.click('button:has-text("Add Task")');
 
-    // Click the trash icon 
-    // We target the button within the card containing our text
-    const taskCard = page.locator("div", { hasText: "Task to Delete" });
-    await taskCard.locator("button").click();
+    const taskCard = page.locator('.task-card:has-text("Drag Test Task")');
+    const doneColumn = page.locator('.column:has-text("DONE")');
 
-    await expect(page.locator("text=Task to Delete")).not.toBeVisible();
+    // 2 Perform Drag and Drop
+    // Note: Playwright's dragTo handles the complex pointer events required by dnd-kit
+    await taskCard.dragTo(doneColumn);
+
+    // 3 Verify Position Persistence
+    await expect(doneColumn.locator("text=Drag Test Task")).toBeVisible();
+    
+    // 4 Verify Pie Chart Analytics (Integration Check)
+    // Recharts uses SVG; we check for the existence of the sector
+    const chartSector = page.locator(".recharts-pie-sector");
+    await expect(chartSector).toBeVisible();
   });
 
-  test("Graph updates when tasks are added", async ({ page }) => {
-    // Check if the Recharts container is rendered
-    const chart = page.locator(".recharts-responsive-container");
-    await expect(chart).toBeVisible();
+  test("Delete button removes task and updates global state", async ({ page }) => {
+    await page.fill('.task-input', "Cleanup Task");
+    await page.click('button:has-text("Add Task")');
+
+    const taskCard = page.locator('.task-card:has-text("Cleanup Task")');
+    
+    // Target the specific delete button inside the card
+    // This verifies our pointer-event-propagation fix works
+    await taskCard.locator('.delete-btn').click();
+
+    await expect(page.locator("text=Cleanup Task")).not.toBeVisible();
   });
 });

@@ -1,115 +1,151 @@
-import React, { useState } from "react";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { useSocket } from "../hooks/useSocket";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Layout, CheckCircle, Clock, ListTodo } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Plus } from "lucide-react";
+import { DndContext, closestCorners, useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import TaskCard from "./TaskCard";
 
-const COLUMNS = [
-  { id: "To Do", icon: <ListTodo className="w-5 h-5" />, color: "bg-blue-500" },
-  { id: "In Progress", icon: <Clock className="w-5 h-5" />, color: "bg-yellow-500" },
-  { id: "Done", icon: <CheckCircle className="w-5 h-5" />, color: "bg-green-500" },
-];
+/**
+ * DroppableColumn component creates a target zone for dnd-kit.
+ */
+function DroppableColumn({ id, tasks, onDeleteTask }) {
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className="task-list" style={{ minHeight: "450px" }}>
+      <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        {tasks.map((task) => (
+          <TaskCard key={task.id} task={task} onDelete={onDeleteTask} />
+        ))}
+      </SortableContext>
+    </div>
+  );
+}
 
-const COLORS = ["#3b82f6", "#f59e0b", "#10b981"];
-
-export default function KanbanBoard() {
-  const { tasks, createTask, moveTask, deleteTask, updateTask } = useSocket();
+export default function KanbanBoard({ tasks, onAddTask, onDeleteTask, onDragEnd }) {
   const [newTaskTitle, setNewTaskTitle] = useState("");
-
-  const onDragEnd = (result) => {
-    if (!result.destination) return;
-    const { draggableId, destination } = result;
-    moveTask(draggableId, destination.droppableId);
-  };
+  const [priority, setPriority] = useState("Medium");
+  const [viewMode, setViewMode] = useState("status");
 
   const handleAddTask = (e) => {
     e.preventDefault();
-    if (!newTaskTitle.trim()) return;
-    createTask({ title: newTaskTitle, status: "To Do", priority: "Medium", category: "Feature" });
-    setNewTaskTitle("");
+    if (newTaskTitle.trim()) {
+      onAddTask(newTaskTitle, priority);
+      setNewTaskTitle("");
+      setPriority("Medium");
+    }
   };
 
-  // Data for the Analytics Pie Chart
-  const chartData = COLUMNS.map((col) => ({
-    name: col.id,
-    value: tasks.filter((t) => t.status === col.id).length,
-  }));
+  const columns = [
+    { id: "todo", title: "TO DO", color: "#38bdf8" },
+    { id: "in-progress", title: "IN PROGRESS", color: "#fbbf24" },
+    { id: "done", title: "DONE", color: "#22c55e" },
+  ];
+
+  // Data memoization for Status view [cite: 2026-02-15]
+  const statusData = useMemo(() => columns.map(col => ({
+    name: col.title,
+    value: (tasks || []).filter(t => t?.status === col.id).length || 0,
+    color: col.color
+  })), [tasks]);
+
+  // Data memoization for Priority view [cite: 2026-02-15]
+  const priorityData = useMemo(() => [
+    { name: "High", value: (tasks || []).filter(t => t?.priority === "High").length || 0, color: "#ef4444" },
+    { name: "Medium", value: (tasks || []).filter(t => t?.priority === "Medium" || !t?.priority).length || 0, color: "#fbbf24" },
+    { name: "Low", value: (tasks || []).filter(t => t?.priority === "Low").length || 0, color: "#22c55e" },
+  ], [tasks]);
+
+  const activeData = viewMode === "status" ? statusData : priorityData;
+  const hasData = activeData.some(d => d.value > 0);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
-      <header className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Layout className="text-blue-600" /> Real-Time Kanban
-          </h1>
-          <p className="text-gray-500">Manage your tasks and track progress instantly</p>
+    <div className="board-content">
+      {/* Analytics Controls */}
+      <div className="analytics-header">
+        <h3 style={{ color: '#000000', margin: 0 }}>Analytics Dashboard</h3>
+        <div className="toggle-group">
+          <button 
+            className={`toggle-btn ${viewMode === 'status' ? 'active' : ''}`}
+            onClick={() => setViewMode('status')}
+          >By Status</button>
+          <button 
+            className={`toggle-btn ${viewMode === 'priority' ? 'active' : ''}`}
+            onClick={() => setViewMode('priority')}
+          >By Priority</button>
         </div>
+      </div>
 
-        {/* Analytics Section */}
-        <div className="w-full md:w-64 h-32 bg-white rounded-xl shadow-sm border border-gray-100 p-2">
-          <ResponsiveContainer width="100%" height="100%">
+      {/* Recharts Pie Chart [cite: 2026-02-15] */}
+      <div className="chart-wrapper">
+        <ResponsiveContainer width="100%" height="100%" debounce={100}>
+          {hasData ? (
             <PieChart>
-              <Pie data={chartData} innerRadius={25} outerRadius={40} paddingAngle={5} dataKey="value">
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Pie
+                data={activeData}
+                cx="50%" cy="50%"
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+                isAnimationActive={false}
+              >
+                {activeData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip cursor={{ fill: 'transparent' }} />
+              <Legend verticalAlign="bottom" height={36}/>
             </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </header>
+          ) : null}
+        </ResponsiveContainer>
+      </div>
 
-      {/* Task Input */}
-      <form onSubmit={handleAddTask} className="max-w-7xl mx-auto mb-10 flex gap-2">
+      {/* Task Creation Form */}
+      <form onSubmit={handleAddTask} className="task-input-form">
         <input
           type="text"
+          className="task-input"
+          placeholder="What needs to be done?"
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
-          placeholder="Enter new task title..."
-          className="flex-1 px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+          style={{ color: '#000000' }}
         />
-        <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 font-medium transition-colors">
+        <select 
+          className="priority-select"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+          style={{ color: '#000000' }}
+        >
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <button type="submit" className="add-task-button">
           <Plus size={20} /> Add Task
         </button>
       </form>
 
-      {/* Kanban Grid */}
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-          {COLUMNS.map((column) => (
-            <div key={column.id} className="bg-gray-100 rounded-xl p-4 min-h-[500px] flex flex-col">
-              <div className="flex items-center gap-2 mb-4 px-2">
-                <span className={`${column.color} p-1.5 rounded-lg text-white`}>{column.icon}</span>
-                <h2 className="font-bold text-gray-700 uppercase tracking-wider">{column.id}</h2>
-                <span className="ml-auto bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs font-bold">
-                  {tasks.filter((t) => t.status === column.id).length}
+      {/* Main Drag-and-Drop Area [cite: 2026-02-15] */}
+      <DndContext collisionDetection={closestCorners} onDragEnd={onDragEnd}>
+        <div className="kanban-grid">
+          {columns.map((col) => (
+            <div key={col.id} className="column">
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                <h2 style={{ color: '#000000', fontSize: '1.1rem', margin: 0 }}>{col.title}</h2>
+                <span className="task-count" style={{ color: col.color, fontWeight: '800' }}>
+                  {(tasks || []).filter(t => t?.status === col.id).length}
                 </span>
               </div>
 
-              <Droppable droppableId={column.id}>
-                {(provided) => (
-                  <div {...provided.droppableProps} ref={provided.innerRef} className="flex-1 space-y-3">
-                    {tasks
-                      .filter((task) => task.status === column.id)
-                      .map((task, index) => (
-                        <Draggable key={task.id} draggableId={task.id} index={index}>
-                          {(provided) => (
-                            <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}>
-                              <TaskCard task={task} onUpdate={updateTask} onDelete={deleteTask} />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
+              <DroppableColumn 
+                id={col.id} 
+                tasks={(tasks || []).filter(t => t?.status === col.id)} 
+                onDeleteTask={onDeleteTask} 
+              />
             </div>
           ))}
         </div>
-      </DragDropContext>
+      </DndContext>
     </div>
   );
 }

@@ -18,7 +18,9 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: "./src/setupTests.js",
-    exclude: ["node_modules", "src/tests/e2e"],
+    // Adjusted to exclude your new root-level e2e folder
+    exclude: ["node_modules", "tests/e2e/**"], 
+    include: ["tests/unit/**/*.{test,spec}.{js,jsx}", "tests/integration/**/*.{test,spec}.{js,jsx}"],
   },
   plugins: [react()],
 });

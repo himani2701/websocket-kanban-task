@@ -1,21 +1,21 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
-import TaskCard from "../../components/TaskCard.jsx";
-import React from "react";
 
-describe("TaskCard Component", () => {
-  const mockTask = {
-    id: "123",
-    title: "Test Feature",
-    priority: "Medium",
-    category: "Feature",
-    attachments: []
-  };
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import TaskCard from '../../src/components/TaskCard';
 
-  it("renders task details correctly", () => {
-    render(<TaskCard task={mockTask} onUpdate={vi.fn()} onDelete={vi.fn()} />);
-    expect(screen.getByText("Test Feature")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Medium")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Feature")).toBeInTheDocument();
+describe('TaskCard Component', () => {
+  const mockTask = { id: '1', title: 'Test Task', status: 'todo' };
+  const mockDelete = vi.fn();
+
+  it('renders task title correctly', () => {
+    render(<TaskCard task={mockTask} onDelete={mockDelete} />);
+    expect(screen.getByText('Test Task')).toBeDefined();
   });
-}); 
+
+  it('calls onDelete when trash icon is clicked', () => {
+    render(<TaskCard task={mockTask} onDelete={mockDelete} />);
+    const deleteBtn = screen.getByRole('button');
+    fireEvent.click(deleteBtn);
+    expect(mockDelete).toHaveBeenCalledWith('1');
+  });
+});
