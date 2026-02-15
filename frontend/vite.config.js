@@ -3,6 +3,9 @@ import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
 export default defineConfig({
+  // 1. Set the base path for GitHub Pages deployment
+  base: "/websocket-kanban-task/", 
+
   server: {
     port: 3000,
     strictPort: true,
@@ -20,7 +23,10 @@ export default defineConfig({
     setupFiles: "./src/setupTests.js",
     // Adjusted to exclude your new root-level e2e folder
     exclude: ["node_modules", "tests/e2e/**"], 
-    include: ["tests/unit/**/*.{test,spec}.{js,jsx}", "tests/integration/**/*.{test,spec}.{js,jsx}"],
+    include: [
+      "tests/unit/**/*.{test,spec}.{js,jsx}", 
+      "tests/integration/**/*.{test,spec}.{js,jsx}"
+    ],
   },
   plugins: [react()],
 });
